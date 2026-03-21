@@ -30,9 +30,10 @@ router.get('/', verifyAdmin, async (req, res) => {
         const { status, payment_method, date_from, date_to, limit = 100 } = req.query;
         
         let query = `
-            SELECT p.*, pr.vehicle_registration, pr.slot_number, pr.owner_name
+            SELECT p.*, pr.vehicle_registration, ps.slot_number, pr.owner_name
             FROM payments p
             LEFT JOIN parking_records pr ON p.parking_record_id = pr.id
+            LEFT JOIN parking_slots ps ON pr.slot_id = ps.id
             WHERE 1=1
         `;
         
@@ -77,9 +78,10 @@ router.get('/:id', verifyAdmin, async (req, res) => {
         const { id } = req.params;
         
         const [payments] = await db.promise().query(
-            `SELECT p.*, pr.vehicle_registration, pr.slot_number, pr.owner_name
+            `SELECT p.*, pr.vehicle_registration, ps.slot_number, pr.owner_name
              FROM payments p
              LEFT JOIN parking_records pr ON p.parking_record_id = pr.id
+             LEFT JOIN parking_slots ps ON pr.slot_id = ps.id
              WHERE p.id = ?`,
             [id]
         );
