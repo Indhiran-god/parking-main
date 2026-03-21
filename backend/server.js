@@ -31,6 +31,7 @@ const userRoutes = require('./routes/user');
 const parkingRoutes = require('./routes/parking');
 const reportRoutes = require('./routes/reports');
 const settingsRoutes = require('./routes/settings');
+const paymentRoutes = require('./routes/payments');
 
 // Use routes
 app.use('/api/auth', authRoutes);
@@ -39,6 +40,7 @@ app.use('/api/user', userRoutes);
 app.use('/api/parking', parkingRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/settings', settingsRoutes);
+app.use('/api/payments', paymentRoutes);
 
 // Basic route
 app.get('/', (req, res) => {

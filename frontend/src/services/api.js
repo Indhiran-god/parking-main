@@ -94,4 +94,15 @@ export const settingsAPI = {
   createBackup: () => api.get('/settings/backup', { responseType: 'blob' }),
 };
 
+// Payment API
+export const paymentAPI = {
+  getAllPayments: (params) => api.get('/payments', { params }),
+  getPayment: (id) => api.get(`/payments/${id}`),
+  manualUpdatePayment: (data) => api.put('/payments/manual-update', data),
+  processRefund: (paymentId) => api.post(`/payments/${paymentId}/refund`),
+  exportPayments: (params) => api.get('/payments/export', { params, responseType: 'blob' }),
+  getPaymentMethods: () => api.get('/payments/methods'),
+  getPaymentStats: () => api.get('/payments/stats'),
+};
+
 export default api;

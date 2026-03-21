@@ -10,6 +10,7 @@ import VehicleExit from './components/admin/VehicleExit';
 import SlotManagement from './components/admin/SlotManagement';
 import Reports from './components/admin/Reports';
 import Settings from './components/admin/Settings';
+import Payment from './components/admin/Payment';
 
 // User Components
 import UserLogin from './components/user/UserLogin';
@@ -39,6 +40,7 @@ function App() {
             <Route path="slots" element={<Layout><SlotManagement /></Layout>} />
             <Route path="reports" element={<Layout><Reports /></Layout>} />
             <Route path="settings" element={<Layout><Settings /></Layout>} />
+            <Route path="payments" element={<Layout><Payment /></Layout>} />
           </Route>
           
           {/* User Protected Routes */}

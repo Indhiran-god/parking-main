@@ -110,9 +110,44 @@ INSERT OR IGNORE INTO system_settings (setting_key, setting_value, description) 
 ('system_name', 'Vehicle Parking Management System', 'Name of the parking system'),
 ('currency', 'INR', 'Currency used for parking fees');
 
+-- Payments table
+CREATE TABLE IF NOT EXISTS payments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    parking_record_id INTEGER NOT NULL,
+    transaction_id TEXT UNIQUE,
+    amount REAL NOT NULL,
+    payment_method TEXT CHECK(payment_method IN ('cash', 'card', 'upi', 'netbanking', 'wallet')) DEFAULT 'cash',
+    status TEXT CHECK(status IN ('pending', 'completed', 'failed', 'refunded')) DEFAULT 'pending',
+    notes TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (parking_record_id) REFERENCES parking_records(id) ON DELETE CASCADE
+);
+
+-- Trigger for payments updated_at
+CREATE TRIGGER IF NOT EXISTS update_payments_timestamp 
+AFTER UPDATE ON payments
+BEGIN
+    UPDATE payments SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id;
+END;
+
+-- Refunds table
+CREATE TABLE IF NOT EXISTS refunds (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    payment_id INTEGER NOT NULL,
+    amount REAL NOT NULL,
+    refund_reason TEXT,
+    processed_by TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (payment_id) REFERENCES payments(id) ON DELETE CASCADE
+);
+
 -- Indexes
 CREATE INDEX IF NOT EXISTS idx_parking_records_vehicle ON parking_records(vehicle_registration);
 CREATE INDEX IF NOT EXISTS idx_parking_records_slot ON parking_records(slot_id);
 CREATE INDEX IF NOT EXISTS idx_parking_records_entry_time ON parking_records(entry_time);
 CREATE INDEX IF NOT EXISTS idx_parking_slots_status ON parking_slots(status);
 CREATE INDEX IF NOT EXISTS idx_parking_slots_number ON parking_slots(slot_number);
+CREATE INDEX IF NOT EXISTS idx_payments_status ON payments(status);
+CREATE INDEX IF NOT EXISTS idx_payments_method ON payments(payment_method);
+CREATE INDEX IF NOT EXISTS idx_payments_created ON payments(created_at);

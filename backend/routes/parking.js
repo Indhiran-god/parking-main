@@ -200,6 +200,14 @@ router.post('/exit', verifyAdmin, async (req, res) => {
                 [exitTime, durationMinutes, feeAmount, record.id]
             );
             
+            // Create payment record
+            await connection.query(
+                `INSERT INTO payments 
+                 (parking_record_id, amount, payment_method, status, created_at, updated_at) 
+                 VALUES (?, ?, 'cash', 'completed', ?, ?)`,
+                [record.id, feeAmount, exitTime, exitTime]
+            );
+            
             // Update slot status
             await connection.query(
                 'UPDATE parking_slots SET status = "Free" WHERE id = ?',

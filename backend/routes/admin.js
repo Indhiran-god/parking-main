@@ -45,12 +45,12 @@ router.get('/dashboard', verifyAdmin, async (req, res) => {
         // Get free slots
         const freeSlots = totalSlots - occupiedSlots;
         
-        // Get today's revenue
+        // Get today's revenue from payments table
         const today = new Date().toISOString().split('T')[0];
         const [revenueResult] = await db.promise().query(
-            `SELECT COALESCE(SUM(fee_amount), 0) as today_revenue 
-             FROM parking_records 
-             WHERE DATE(exit_time) = ? AND payment_status = 'Paid'`,
+            `SELECT COALESCE(SUM(amount), 0) as today_revenue 
+             FROM payments 
+             WHERE DATE(created_at) = ? AND status = 'completed'`,
             [today]
         );
         const todayRevenue = revenueResult[0].today_revenue;

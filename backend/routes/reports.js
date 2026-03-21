@@ -163,13 +163,14 @@ router.get('/revenue', verifyAdmin, async (req, res) => {
             case 'daily':
                 revenueQuery = `
                     SELECT 
-                        DATE(exit_time) as date,
+                        DATE(p.created_at) as date,
                         COUNT(*) as transactions,
-                        SUM(fee_amount) as total_revenue,
-                        AVG(fee_amount) as average_fee
-                    FROM parking_records 
-                    WHERE exit_time IS NOT NULL AND payment_status = 'Paid'
-                    GROUP BY DATE(exit_time)
+                        SUM(p.amount) as total_revenue,
+                        AVG(p.amount) as average_fee,
+                        GROUP_CONCAT(DISTINCT p.payment_method) as payment_methods
+                    FROM payments p
+                    WHERE p.status = 'completed'
+                    GROUP BY DATE(p.created_at)
                     ORDER BY date DESC
                     LIMIT 30
                 `;
@@ -178,13 +179,14 @@ router.get('/revenue', verifyAdmin, async (req, res) => {
             case 'weekly':
                 revenueQuery = `
                     SELECT 
-                        YEARWEEK(exit_time) as week,
+                        YEARWEEK(p.created_at) as week,
                         COUNT(*) as transactions,
-                        SUM(fee_amount) as total_revenue,
-                        AVG(fee_amount) as average_fee
-                    FROM parking_records 
-                    WHERE exit_time IS NOT NULL AND payment_status = 'Paid'
-                    GROUP BY YEARWEEK(exit_time)
+                        SUM(p.amount) as total_revenue,
+                        AVG(p.amount) as average_fee,
+                        GROUP_CONCAT(DISTINCT p.payment_method) as payment_methods
+                    FROM payments p
+                    WHERE p.status = 'completed'
+                    GROUP BY YEARWEEK(p.created_at)
                     ORDER BY week DESC
                     LIMIT 12
                 `;
@@ -193,13 +195,14 @@ router.get('/revenue', verifyAdmin, async (req, res) => {
             case 'monthly':
                 revenueQuery = `
                     SELECT 
-                        DATE_FORMAT(exit_time, '%Y-%m') as month,
+                        DATE_FORMAT(p.created_at, '%Y-%m') as month,
                         COUNT(*) as transactions,
-                        SUM(fee_amount) as total_revenue,
-                        AVG(fee_amount) as average_fee
-                    FROM parking_records 
-                    WHERE exit_time IS NOT NULL AND payment_status = 'Paid'
-                    GROUP BY DATE_FORMAT(exit_time, '%Y-%m')
+                        SUM(p.amount) as total_revenue,
+                        AVG(p.amount) as average_fee,
+                        GROUP_CONCAT(DISTINCT p.payment_method) as payment_methods
+                    FROM payments p
+                    WHERE p.status = 'completed'
+                    GROUP BY DATE_FORMAT(p.created_at, '%Y-%m')
                     ORDER BY month DESC
                     LIMIT 12
                 `;
@@ -211,15 +214,15 @@ router.get('/revenue', verifyAdmin, async (req, res) => {
                 }
                 revenueQuery = `
                     SELECT 
-                        DATE(exit_time) as date,
+                        DATE(p.created_at) as date,
                         COUNT(*) as transactions,
-                        SUM(fee_amount) as total_revenue,
-                        AVG(fee_amount) as average_fee
-                    FROM parking_records 
-                    WHERE exit_time IS NOT NULL 
-                      AND payment_status = 'Paid'
-                      AND DATE(exit_time) BETWEEN ? AND ?
-                    GROUP BY DATE(exit_time)
+                        SUM(p.amount) as total_revenue,
+                        AVG(p.amount) as average_fee,
+                        GROUP_CONCAT(DISTINCT p.payment_method) as payment_methods
+                    FROM payments p
+                    WHERE p.status = 'completed'
+                      AND DATE(p.created_at) BETWEEN ? AND ?
+                    GROUP BY DATE(p.created_at)
                     ORDER BY date
                 `;
                 params.push(date_from, date_to);
@@ -338,12 +341,14 @@ router.get('/export', verifyAdmin, async (req, res) => {
             case 'revenue':
                 const [revenue] = await db.promise().query(`
                     SELECT 
-                        DATE(exit_time) as date,
+                        DATE(p.created_at) as date,
                         COUNT(*) as transactions,
-                        SUM(fee_amount) as total_revenue
-                    FROM parking_records 
-                    WHERE exit_time IS NOT NULL AND payment_status = 'Paid'
-                    GROUP BY DATE(exit_time)
+                        SUM(p.amount) as total_revenue,
+                        AVG(p.amount) as average_fee,
+                        GROUP_CONCAT(DISTINCT p.payment_method) as payment_methods
+                    FROM payments p
+                    WHERE p.status = 'completed'
+                    GROUP BY DATE(p.created_at)
                     ORDER BY date DESC
                     LIMIT 90
                 `);
