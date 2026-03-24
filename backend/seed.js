@@ -129,45 +129,54 @@ async function seedDatabase() {
 
     console.log(`Created ${slotsToOccupy.length} active parking records`);
 
-    // Create some completed parking records (from yesterday)
-    const completedSlots = ['A-002', 'A-003', 'A-004'];
-    const completedVehicles = ['MH-12-AB-1234', 'DL-01-CD-5678', 'KA-05-EF-9012'];
+      // Create some completed parking records (from yesterday)
+      const completedSlots = ['A-002', 'A-003', 'A-004'];
+      const completedVehicles = ['MH-12-AB-1234', 'DL-01-CD-5678', 'KA-05-EF-9012'];
 
-    for (let i = 0; i < completedSlots.length; i++) {
-      const slotNumber = completedSlots[i];
-      const vehicleReg = completedVehicles[i];
+      for (let i = 0; i < completedSlots.length; i++) {
+        const slotNumber = completedSlots[i];
+        const vehicleReg = completedVehicles[i];
 
-      // Get slot ID
-      const slotRows = await query('SELECT id FROM parking_slots WHERE slot_number = ?', [slotNumber]);
-      // If slot doesn't exist (e.g. A-002), we should probably insert it or skip. Assuming it exists from setup.
-      if (slotRows.length === 0) continue;
+        // Get slot ID
+        const slotRows = await query('SELECT id FROM parking_slots WHERE slot_number = ?', [slotNumber]);
+        // If slot doesn't exist (e.g. A-002), we should probably insert it or skip. Assuming it exists from setup.
+        if (slotRows.length === 0) continue;
 
-      const slotId = slotRows[0].id;
+        const slotId = slotRows[0].id;
 
-      // Get user info
-      const userRows = await query('SELECT owner_name FROM users WHERE vehicle_registration = ?', [vehicleReg]);
-      if (userRows.length === 0) continue;
+        // Get user info
+        const userRows = await query('SELECT owner_name FROM users WHERE vehicle_registration = ?', [vehicleReg]);
+        if (userRows.length === 0) continue;
 
-      const ownerName = userRows[0].owner_name;
+        const ownerName = userRows[0].owner_name;
 
-      // Create completed parking record (yesterday)
-      const entryTimeObj = new Date(Date.now() - 24 * 60 * 60 * 1000);
-      const exitTimeObj = new Date(entryTimeObj.getTime() + (3 + i) * 60 * 60 * 1000);
+        // Create completed parking record (yesterday)
+        const entryTimeObj = new Date(Date.now() - 24 * 60 * 60 * 1000);
+        const exitTimeObj = new Date(entryTimeObj.getTime() + (3 + i) * 60 * 60 * 1000);
 
-      const durationMinutes = Math.floor((exitTimeObj - entryTimeObj) / (1000 * 60));
-      const feeAmount = Math.ceil(durationMinutes / 60) * 50; // 50 INR per hour
+        const durationMinutes = Math.floor((exitTimeObj - entryTimeObj) / (1000 * 60));
+        const feeAmount = Math.ceil(durationMinutes / 60) * 50; // 50 INR per hour
 
-      await query(
-        `INSERT INTO parking_records 
-                 (vehicle_registration, slot_id, owner_name, contact_number, vehicle_type, 
-                  entry_time, exit_time, parking_duration_minutes, fee_amount, payment_status) 
-                 VALUES (?, ?, ?, ?, 'Car', ?, ?, ?, ?, 'Paid')`,
-        [vehicleReg, slotId, ownerName, `987654321${i}`,
-          entryTimeObj.toISOString(), exitTimeObj.toISOString(), durationMinutes, feeAmount]
-      );
-    }
+        // Insert parking record
+        const parkingResult = await query(
+          `INSERT INTO parking_records 
+                   (vehicle_registration, slot_id, owner_name, contact_number, vehicle_type, 
+                    entry_time, exit_time, parking_duration_minutes, fee_amount, payment_status) 
+                   VALUES (?, ?, ?, ?, 'Car', ?, ?, ?, ?, 'Paid')`,
+          [vehicleReg, slotId, ownerName, `987654321${i}`,
+            entryTimeObj.toISOString(), exitTimeObj.toISOString(), durationMinutes, feeAmount]
+        );
 
-    console.log(`Created ${completedSlots.length} completed parking records`);
+        // Create corresponding payment record with properly formatted dates
+        await query(
+          `INSERT INTO payments 
+                   (parking_record_id, amount, payment_method, status, created_at, updated_at) 
+                   VALUES (?, ?, 'cash', 'completed', ?, ?)`,
+          [parkingResult.insertId, feeAmount, exitTimeObj.toISOString(), exitTimeObj.toISOString()]
+        );
+      }
+
+      console.log(`Created ${completedSlots.length} completed parking records with payment records`);
 
     // Mark some slots as reserved and maintenance
     await query('UPDATE parking_slots SET status = "Reserved" WHERE slot_number IN ("A-020", "A-021")');

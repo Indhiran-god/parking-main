@@ -184,7 +184,9 @@ const Reports = () => {
         );
 
       case 'revenue':
-        const totalRevenue = reportData.reduce((sum, item) => sum + (parseFloat(item.fee_amount) || 0), 0);
+        // Calculate total revenue correctly from the backend data
+        const totalRevenue = reportData.reduce((sum, item) => sum + (parseFloat(item.total_revenue) || 0), 0);
+        const totalTransactions = reportData.reduce((sum, item) => sum + (parseInt(item.transactions) || 0), 0);
         return (
           <div>
             <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
@@ -193,6 +195,7 @@ const Reports = () => {
               </div>
               <div className="text-sm text-green-600">
                 Period: {dateRange.startDate} to {dateRange.endDate}
+                <span className="ml-4">Transactions: {totalTransactions}</span>
               </div>
             </div>
             <table className="min-w-full divide-y divide-gray-200">
@@ -202,15 +205,17 @@ const Reports = () => {
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Transactions</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total Revenue</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Avg. Fee</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Payment Methods</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {reportData.map((item, index) => (
                   <tr key={index}>
-                    <td className="px-4 py-3 text-sm">{item.date || 'N/A'}</td>
+                    <td className="px-4 py-3 text-sm">{item.date || item.month || item.week || 'N/A'}</td>
                     <td className="px-4 py-3 text-sm">{item.transactions || 0}</td>
-                    <td className="px-4 py-3 text-sm">₹{parseFloat(item.revenue || 0).toFixed(2)}</td>
+                    <td className="px-4 py-3 text-sm">₹{parseFloat(item.total_revenue || 0).toFixed(2)}</td>
                     <td className="px-4 py-3 text-sm">₹{parseFloat(item.average_fee || 0).toFixed(2)}</td>
+                    <td className="px-4 py-3 text-sm">{item.payment_methods || 'N/A'}</td>
                   </tr>
                 ))}
               </tbody>

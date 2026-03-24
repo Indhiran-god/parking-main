@@ -200,12 +200,13 @@ router.post('/exit', verifyAdmin, async (req, res) => {
                 [exitTime, durationMinutes, feeAmount, record.id]
             );
             
-            // Create payment record
+            // Create payment record with properly formatted dates
+            const formattedExitTime = exitTime.toISOString();
             await connection.query(
                 `INSERT INTO payments 
                  (parking_record_id, amount, payment_method, status, created_at, updated_at) 
                  VALUES (?, ?, 'cash', 'completed', ?, ?)`,
-                [record.id, feeAmount, exitTime, exitTime]
+                [record.id, feeAmount, formattedExitTime, formattedExitTime]
             );
             
             // Update slot status
