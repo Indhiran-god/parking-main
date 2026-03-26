@@ -62,6 +62,8 @@ export const parkingAPI = {
   getSlots: () => api.get('/parking/slots'),
   vehicleEntry: (data) => api.post('/parking/entry', data),
   vehicleExit: (data) => api.post('/parking/exit', data),
+  calculateFee: (data) => api.post('/parking/calculate-fee', data),
+  processPaymentExit: (data) => api.post('/parking/process-payment-exit', data),
   getCurrentVehicles: () => api.get('/parking/current'),
   getHistory: (params) => api.get('/parking/history', { params }),
 };

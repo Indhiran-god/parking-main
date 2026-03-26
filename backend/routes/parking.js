@@ -145,7 +145,178 @@ router.post('/entry', verifyAdmin, async (req, res) => {
     }
 });
 
-// Vehicle exit (admin only)
+// Calculate exit fee (admin only)
+router.post('/calculate-fee', verifyAdmin, async (req, res) => {
+    try {
+        const { vehicle_registration, slot_number } = req.body;
+        
+        if (!vehicle_registration && !slot_number) {
+            return res.status(400).json({ error: 'Vehicle registration or slot number is required' });
+        }
+        
+        // Find the active parking record
+        let query = `SELECT pr.*, ps.slot_number 
+                     FROM parking_records pr 
+                     JOIN parking_slots ps ON pr.slot_id = ps.id 
+                     WHERE pr.exit_time IS NULL`;
+        
+        let params = [];
+        
+        if (vehicle_registration) {
+            query += ' AND pr.vehicle_registration = ?';
+            params.push(vehicle_registration);
+        } else if (slot_number) {
+            query += ' AND ps.slot_number = ?';
+            params.push(slot_number);
+        }
+        
+        const [records] = await db.promise().query(query, params);
+        
+        if (records.length === 0) {
+            return res.status(404).json({ error: 'No active parking record found' });
+        }
+        
+        const record = records[0];
+        const exitTime = new Date();
+        const entryTime = new Date(record.entry_time);
+        const durationMs = exitTime - entryTime;
+        const durationMinutes = Math.floor(durationMs / (1000 * 60));
+        
+        // Get hourly rate from settings
+        const [settings] = await db.promise().query(
+            'SELECT setting_value FROM system_settings WHERE setting_key = ?',
+            ['hourly_rate']
+        );
+        
+        const hourlyRate = settings.length > 0 ? parseFloat(settings[0].setting_value) : 50;
+        const hours = Math.max(1, Math.ceil(durationMinutes / 60));
+        const feeAmount = hours * hourlyRate;
+        
+        res.json({
+            message: 'Fee calculated successfully',
+            record: record,
+            duration_minutes: durationMinutes,
+            fee_amount: feeAmount,
+            hourly_rate: hourlyRate,
+            hours: hours
+        });
+        
+    } catch (error) {
+        console.error('Calculate fee error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// Process manual payment and exit (admin only)
+router.post('/process-payment-exit', verifyAdmin, async (req, res) => {
+    try {
+        const { vehicle_registration, slot_number, payment_method, transaction_id, notes } = req.body;
+        
+        if (!vehicle_registration && !slot_number) {
+            return res.status(400).json({ error: 'Vehicle registration or slot number is required' });
+        }
+        
+        if (!payment_method) {
+            return res.status(400).json({ error: 'Payment method is required' });
+        }
+        
+        // Find the active parking record
+        let query = `SELECT pr.*, ps.slot_number 
+                     FROM parking_records pr 
+                     JOIN parking_slots ps ON pr.slot_id = ps.id 
+                     WHERE pr.exit_time IS NULL`;
+        
+        let params = [];
+        
+        if (vehicle_registration) {
+            query += ' AND pr.vehicle_registration = ?';
+            params.push(vehicle_registration);
+        } else if (slot_number) {
+            query += ' AND ps.slot_number = ?';
+            params.push(slot_number);
+        }
+        
+        const [records] = await db.promise().query(query, params);
+        
+        if (records.length === 0) {
+            return res.status(404).json({ error: 'No active parking record found' });
+        }
+        
+        const record = records[0];
+        const exitTime = new Date();
+        const entryTime = new Date(record.entry_time);
+        const durationMs = exitTime - entryTime;
+        const durationMinutes = Math.floor(durationMs / (1000 * 60));
+        
+        // Get hourly rate from settings
+        const [settings] = await db.promise().query(
+            'SELECT setting_value FROM system_settings WHERE setting_key = ?',
+            ['hourly_rate']
+        );
+        
+        const hourlyRate = settings.length > 0 ? parseFloat(settings[0].setting_value) : 50;
+        const hours = Math.max(1, Math.ceil(durationMinutes / 60));
+        const feeAmount = hours * hourlyRate;
+        
+        // Start transaction
+        const connection = await db.promise().getConnection();
+        await connection.beginTransaction();
+        
+        try {
+            // Update parking record
+            await connection.query(
+                `UPDATE parking_records 
+                 SET exit_time = ?, parking_duration_minutes = ?, fee_amount = ?, payment_status = 'Paid'
+                 WHERE id = ?`,
+                [exitTime, durationMinutes, feeAmount, record.id]
+            );
+            
+            // Create payment record
+            const formattedExitTime = exitTime.toISOString();
+            await connection.query(
+                `INSERT INTO payments 
+                 (parking_record_id, amount, payment_method, transaction_id, status, notes, created_at, updated_at) 
+                 VALUES (?, ?, ?, ?, 'completed', ?, ?, ?)`,
+                [record.id, feeAmount, payment_method, transaction_id || null, notes || null, formattedExitTime, formattedExitTime]
+            );
+            
+            // Update slot status
+            await connection.query(
+                'UPDATE parking_slots SET status = "Free" WHERE id = ?',
+                [record.slot_id]
+            );
+            
+            await connection.commit();
+            connection.release();
+            
+            // Get updated record
+            const [updatedRecord] = await db.promise().query(
+                `SELECT * FROM parking_records WHERE id = ?`,
+                [record.id]
+            );
+            
+            res.json({
+                message: 'Payment processed and vehicle exit completed successfully',
+                record: updatedRecord[0],
+                duration_minutes: durationMinutes,
+                fee_amount: feeAmount,
+                slot_freed: record.slot_number,
+                payment_method: payment_method
+            });
+            
+        } catch (error) {
+            await connection.rollback();
+            connection.release();
+            throw error;
+        }
+        
+    } catch (error) {
+        console.error('Process payment exit error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// Vehicle exit (admin only) - kept for backward compatibility
 router.post('/exit', verifyAdmin, async (req, res) => {
     try {
         const { vehicle_registration, slot_number } = req.body;
@@ -182,8 +353,13 @@ router.post('/exit', verifyAdmin, async (req, res) => {
         const durationMs = exitTime - entryTime;
         const durationMinutes = Math.floor(durationMs / (1000 * 60));
         
-        // Calculate fee (50 INR per hour, minimum 1 hour)
-        const hourlyRate = 50;
+        // Get hourly rate from settings
+        const [settings] = await db.promise().query(
+            'SELECT setting_value FROM system_settings WHERE setting_key = ?',
+            ['hourly_rate']
+        );
+        
+        const hourlyRate = settings.length > 0 ? parseFloat(settings[0].setting_value) : 50;
         const hours = Math.max(1, Math.ceil(durationMinutes / 60));
         const feeAmount = hours * hourlyRate;
         

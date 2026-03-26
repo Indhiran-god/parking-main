@@ -133,9 +133,10 @@ router.put('/manual-update', verifyAdmin, async (req, res) => {
         
         // Get updated payment
         const [updatedPayment] = await db.promise().query(
-            `SELECT p.*, pr.vehicle_registration, pr.slot_number, pr.owner_name
+            `SELECT p.*, pr.vehicle_registration, ps.slot_number, pr.owner_name
              FROM payments p
              LEFT JOIN parking_records pr ON p.parking_record_id = pr.id
+             LEFT JOIN parking_slots ps ON pr.slot_id = ps.id
              WHERE p.id = ?`,
             [payment_id]
         );
