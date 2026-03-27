@@ -126,9 +126,14 @@ router.put('/manual-update', verifyAdmin, async (req, res) => {
             updated_at: new Date()
         };
         
+        // Build SET clause for SQLite
+        const setClause = Object.keys(updateData).map(key => `${key} = ?`).join(', ');
+        const values = Object.values(updateData);
+        values.push(payment_id); // Add payment_id for WHERE clause
+        
         await db.promise().query(
-            'UPDATE payments SET ? WHERE id = ?',
-            [updateData, payment_id]
+            `UPDATE payments SET ${setClause} WHERE id = ?`,
+            values
         );
         
         // Get updated payment
